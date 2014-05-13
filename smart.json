@@ -1,0 +1,13 @@
+{
+	"name": "qedit",
+	"description": "Simple inline editing for bootstrap 3",
+	"homepage": "",
+	"author": "Joel Cornett <joel.cornett@gmail.com>",
+	"version": "0.1.0",
+	"git": "",
+	"packages": {
+		"bootstrap-3": {},
+	  "glyphicons-halflings": {},
+	  "moment": {}
+	}
+}
