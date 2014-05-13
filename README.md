@@ -20,3 +20,5 @@ A quick-and-dirty inline field editor with jQuery for Meteor.
         Records.update(this.data._id, {$set: changes});
       }
     });
+    
+More documentation to follow. If you have any usage questions, please feel free to contact me at joel.cornett@gmail.com.
