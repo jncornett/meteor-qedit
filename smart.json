@@ -1,10 +1,10 @@
 {
 	"name": "qedit",
 	"description": "Simple inline editing for bootstrap 3",
-	"homepage": "",
+	"homepage": "https://github.com/jncornett/meteor-qedit",
 	"author": "Joel Cornett <joel.cornett@gmail.com>",
 	"version": "0.1.0",
-	"git": "",
+	"git": "https://github.com/jncornett/meteor-qedit.git",
 	"packages": {
 		"bootstrap-3": {},
 	  "glyphicons-halflings": {},
