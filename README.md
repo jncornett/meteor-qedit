@@ -7,7 +7,7 @@ A quick-and-dirty inline field editor with jQuery for Meteor.
     
 ### HTML ###
 
-    <span id="editable" data-type="text" data-pk="a23e492b3e432" data-name="value">A Pre-existing Value</span>
+    <span id="editable" data-type="text" data-pk="a23e492b3e432" data-name="value">{{aReactiveField}}</span>
     
 ### JavaScript ###
   
