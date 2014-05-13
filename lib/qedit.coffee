@@ -1,42 +1,39 @@
-pluginName = 'qedit'
+encapsulate = ($, window) ->
+	pluginName = 'qedit'
+	$ = jQuery
 
-FADE_TIME_MS = 150
-KEYCODE_ESCAPE = 27
-KEYCODE_ENTER = 13
+	# # Constants
 
-OPEN_EVENT = "#{pluginName}.open"
-DISMISS_EVENT = "#{pluginName}.dismiss"
-SAVE_EVENT = "#{pluginName}.save"
-CLOSE_EVENT = "#{pluginName}.close"
+	# ### Bootstrap
+	# Default fade transition time for Bootstrap's `.fade`
+	FADE_TIME_MS = 150
 
-DATE_FORMAT = "YYYY-MM-DD"
+	# ### KeyCodes
+	KEYCODE_ESCAPE = 27
+	KEYCODE_ENTER = 13
 
-format = (string, args...) ->
-	index = 0
-	object = args[0]
-	string.replace /{({*)([\w$]*)(}*)}/g, (sub, l, key, r) ->
-		if l or r
-			sub.slice 1, -1
-		else if not key
-			args[index++] or sub
-		else
-			object[key] or sub
+	# ### Events
+	# This plugin makes several hooks available:
+	# 
+	# - `qedit.before.open` and `qedit.after.open`
+	#     - Triggered before and after the widget opens
+	#     - Callback: `function(event, pluginObject)`
+	# - `qedit.before.close` and `qedit.after.close`
+	#     - Triggered before and after the widget closes
+	#       due to an `qedit.ok` or `qedit.cancel` event.
+	#     - Callback: `function(event, pluginObject, mode)` 
+	#       where `mode` is either "ok" or "cancel".
 
-curry = (fn, args...) ->
-	(args2...) ->
-		fn.apply @, args.concat(args2)
+	BEFORE_OPEN_EVENT = "#{pluginName}.before.open"
+	AFTER_OPEN_EVENT = "#{pluginName}.after.open"
+	BEFORE_CLOSE_EVENT = "#{pluginName}.before.close"
+	AFTER_CLOSE_EVENT = "#{pluginName}.after.close"
+	TRIGGER_OPEN = "#{pluginName}.open"
+	TRIGGER_OK = "#{pluginName}.ok"
+	TRIGGER_CANCEL = "#{pluginName}.cancel"
 
-close = (fn, args...) ->
-	() ->
-		fn.apply @, args
-
-# ## Base
-# All editable widgets inherit from this class
-class Base
-	DEFAULTS: 
-		widget: null
-
-	template: "
+	# ### Widget specific constants
+	DEFAULT_TEMPLATE = "
 	  <div class='input-group input-group-sm #{pluginName}-edit fade'>
 	  	{widget}
 	  	<div class='input-group-btn'>
@@ -50,229 +47,373 @@ class Base
 	  </div>
 		"
 
-	constructor: (@el, options) ->
-		@cache =
-			$view: $ @el
+	# The format of input date's `value` property
+	INPUT_DATE_FORMAT = "YYYY-MM-DD"
+	INPUT_MONTH_FORMAT = "YYYY-MM"
 
-		@options = $.extend {}, @DEFAULTS, options
+	# # Helpers
 
-		# Note: Any classes added by external code after initialization
-		# will also be removed on a call to `destroy()`. `@oldClasses`
-		# only saves the classes attached to the element at initialization time.
-		@oldClasses = Array.prototype.slice.call @el.classList, 0
-		@getData()
-		@constructWidget()
-		@attachCallbacks()
+	{format, curry, after, slice, Extendable, guid} = utils
 
-	getData: ->
-		# Get the settings from the data object
-		@data = @cache.$view.data()
+	# # Classes
 
-	constructWidget: ->
-		$view = @cache.$view
-		$edit = @cache.$edit = $ format @template, @options
-		$view.after $edit
-		@cache.$widget = $edit.find ".#{pluginName}-widget"
-		@cache.$ok = $edit.find ".#{pluginName}-ok"
-		@cache.$cancel = $edit.find ".#{pluginName}-cancel"
-		#Attach self to `$edit` data
-		$view.data "#{pluginName}", @
+	# ## Base
+	# All widgets descend from this class
+	class Base extends Extendable
+		template: DEFAULT_TEMPLATE
+		defaults:
+			widget: null
 
-		$view.addClass "fade in"
+		# ### constructor
+		constructor: (@el, options) ->
+			@cache = new Extendable
+			$el = @cache.$el = $ @el
+			@extend @defaults, $el.data(), options
 
-	destroy: ->
-		# 1. Remove any classes applied to `el`.
-		@el.className = @oldClasses.join ' '
-		# 2. Remove any event bindings from `$view`.
-		@detachCallbacks()
-		# 3. Remove any data from `$view`.
-		$view.removeData "#{pluginName}"
-		# 2. Remove `$edit`.
-		$edit.remove()
+			@oldClasses = slice @el.classList, 0
+			@build()
+			@attachCallbacks()
 
-	attachCallbacks: -> 
-		self = @
-		{$view, $edit, $widget, $ok, $cancel} = @cache
+			$el.data "#{pluginName}-data", @
 
-		{dismissOnClickOutside,
-		 dismissOnEscape,
-		 dismissOnLoseFocus,
-		 saveOnDismiss,
-		 saveOnEnter,
-		 saveCallback} = @options
+		# ### build
+		build: ->
+			$el = @cache.$el
+			$edit = @cache.$edit = $ format @template, @
+			.insertAfter $el
 
-		trigger = (event, data) -> $view.trigger event, data
+			@cache.extend
+				$widget: $edit.find ".#{pluginName}-widget"
+				$ok: $edit.find ".#{pluginName}-ok"
+				$cancel: $edit.find ".#{pluginName}-cancel"
 
-		_open = close trigger, OPEN_EVENT
-		_dismiss = close trigger, DISMISS_EVENT
-		_save = curry trigger, SAVE_EVENT
-		_close = close trigger, CLOSE_EVENT
+			$el.addClass "fade in"
 
-		#_dismiss = ->
-		#	$view.trigger DISMISS_EVENT
+		# ### destroy
+		destroy: ->
+			# Remove any classes that were applied to `el` by
+			# this plugin.
+			# Any classes added to `el` (by this plugin, or 
+			# by any other code) after initializing will be
+			# removed. Set the `doNotRevert` option to `true`
+			# to avoid this behavior. 
+			if not @doNotRevert
+				@el.className = @oldClasses.join ' '
 
-		onPluginOpen = ->
-			$view.one DISMISS_EVENT, onPluginDismiss
+			# Remove all callbacks attached to `el` and the 
+			# document. We don't have to worry about the callbacks 
+			# attached to any created elements as we'll be removing
+			# those next...
+			@detachCallbacks()
 
-			$view
-			.removeClass "in"
-			.delay FADE_TIME_MS
-			.hide()
+			# Remove the created element from the DOM
+			@cache.$edit.remove()
+
+			# Remove `this` from `el` data.
+			@cache.$el.removeData "#{pluginName}-data"
+
+		# ### attachCallbacks
+		attachCallbacks: ->
+			self = @
+			{$el, $edit, $widget, $ok, $cancel} = @cache
+			fxQueue = @fxQueue
+			$window = $ window
+
+			trigger = (eventName, args...) ->
+				$el.trigger eventName, args
+
+			# __Trigger helpers:__
+			_before_open = curry trigger, BEFORE_OPEN_EVENT
+			_after_open = curry trigger, AFTER_OPEN_EVENT
+			_before_close = curry trigger, BEFORE_CLOSE_EVENT
+			_after_close = curry trigger, AFTER_CLOSE_EVENT
+			_open = curry trigger, TRIGGER_OPEN
+			_ok = curry trigger, TRIGGER_OK
+			_cancel = curry trigger, TRIGGER_CANCEL
+
+			# __Misc:__
+			@detachWindowCallbacks = _detach_window_callbacks = ->
+				# We call `off()` with functions as arguments so that
+				# other widgets with the same plugin can safely
+				# use the same namespace.			
+				$window
+				.off "click.#{pluginName}", _ok
+				.off "click.#{pluginName}", _cancel
+
+			close = (callback) ->
+				$edit.removeClass "in"
+
+				after FADE_TIME_MS, ->
+					$edit.hide()
+					$el
+					.show()
+					.addClass "in"
+
+					after FADE_TIME_MS, ->
+						callback()
+
+			# __Event Handlers:__
+			onOpen = ->
+				switch self.dismissOnClickOutside
+					when 'save'
+						$window.on "click.#{pluginName}", _ok
+					when 'cancel'
+						$window.on "click.#{pluginName}", _cancel
+
+				_before_open self
+	
+				self.setWidgetValue()
+
+				$el
+				.one TRIGGER_OK, onOk
+				.one TRIGGER_CANCEL, onCancel
+
+				$el
+				.removeClass "in"
+				
+				after FADE_TIME_MS, ->
+					$el.hide()
+					$edit
+					.show()
+					.addClass "in"
+
+					after FADE_TIME_MS, ->
+						_after_open self
+
+			onOk = ->
+				# Stop listening for the other events
+				_detach_window_callbacks()
+				$el.off TRIGGER_CANCEL
+
+				_before_close self, 'ok'
+				self.saveCallback.call self, self.getWidgetValue()
+				close -> _after_close self, 'ok'
+
+			onCancel = ->
+				# Stop listening for the other events
+				_detach_window_callbacks()	
+				$el.off TRIGGER_OK
+
+				_before_close self, 'cancel'
+				close -> _after_close self, 'cancel'
+
+			# __Attachment:__
+			$el.on TRIGGER_OPEN, onOpen
 
 			$edit
-			.delay FADE_TIME_MS
-			.show()
-			.addClass "in"
+			.on "click.#{pluginName}", (e) -> e.stopPropagation()
 
-			try
-				$widget
-				.val $view.text()
-				.focus()
-				.select()
-			catch e
-				null
+			$ok
+			.on "click.#{pluginName}", _ok
 
-			if dismissOnClickOutside
-				$ window
-				.on "click.#{pluginName}", _dismiss
+			$cancel
+			.on "click.#{pluginName}", _cancel
 
-		onPluginDismiss = ->
-			if saveOnDismiss
-				_save [self.getValue()]
+			$el
+			.on "click.#{pluginName}", (e) -> e.stopPropagation()
+			.on "click.#{pluginName}", _open
 
-			_close()
+			if self.cancelOnEscape
+				$edit
+				.on "keydown.#{pluginName}", (e) ->
+					_cancel() if e.which is KEYCODE_ESCAPE
 
-		onPluginSave = (e, value) ->
-			saveCallback.call self, e, value
+			if self.saveOnEnter
+				$edit
+				.on "keydown.#{pluginName}", (e) ->
+					_ok() if e.which is KEYCODE_ENTER
 
-		onPluginClose = ->
-			$edit
-			.removeClass "in"
-			.delay FADE_TIME_MS
-			.hide()
+		# ### detachCallbacks
+		detachCallbacks: ->
+			$el
+			.off "click.#{pluginName}"
+			.off [TRIGGER_OPEN, TRIGGER_OK, TRIGGER_CANCEL].join ' '
+			.off [BEFORE_OPEN_EVENT, AFTER_OPEN_EVENT, BEFORE_CLOSE_EVENT, AFTER_CLOSE_EVENT].join ' '
+			@detachWindowCallbacks()
 
-			$view
-			.delay FADE_TIME_MS
-			.show()
-			.addClass "in"
+		# ### getWidgetValue
+		getWidgetValue: -> 
+			@cache.$widget.val()
 
-			$ window
-			.off "click.#{pluginName}", _dismiss
+		# ### setWidgetValue
+		setWidgetValue: ->
+			@cache.$widget.val @cache.$el.text()
 
-		saveAndClose = ->
-			_save [self.getValue()]
-			_close()
+		# ### method
+		method: (name, options) ->
+			@[name] options
 
-		$view.on OPEN_EVENT, onPluginOpen
-		$view.on SAVE_EVENT, onPluginSave
-		$view.on CLOSE_EVENT, onPluginClose
+		open: ->
+			@cache.$el.trigger TRIGGER_OPEN
 
-		$view.on "click.#{pluginName}", (e) -> e.stopPropagation()
-		$edit.on "click.#{pluginName}", (e) -> e.stopPropagation()
+		save: ->
+			@cache.$el.trigger TRIGGER_OK
 
-		if dismissOnLoseFocus
-			$widget.on "blur.#{pluginName}", _dismiss
+		close: ->
+			@cache.$el.trigger TRIGGER_CANCEL
 
-		if dismissOnEscape
-			$edit.on "keydown.#{pluginName}", (e) ->
-				_dismiss() if e.which is KEYCODE_ESCAPE
+	# ## InputText
+	class InputText extends Base
+		defaults:
+			widget: "<input type='text' class='form-control #{pluginName}-widget' />"
 
-		if saveOnEnter
-			$edit.on "keydown.#{pluginName}", (e) ->
-				saveAndClose() if e.which is KEYCODE_ENTER
+		attachCallbacks: ->
+			super()
+			$widget = @cache.$widget
+			@cache.$el
+			.on AFTER_OPEN_EVENT, ->
+				$widget.focus().select()
 
-		$ok.on "click.#{pluginName}", saveAndClose
-		$cancel.on "click.#{pluginName}", _close
-		$view.on "click.#{pluginName}", _open
+	# ## Select
+	class Select extends Base
+		defaults:
+			widget: "<select class='form-control #{pluginName}-widget'></select>"
+			itemWidget: "<option value='{value}'>{text}</text>"
+			saveOnSelect: false
 
-	detachCallbacks: ->
-		$view.off [OPEN_EVENT, CLOSE_EVENT, SAVE_EVENT, DISMISS_EVENT].join " "
-		$view.off "click.#{pluginName}"
+		build: ->
+			super()
+			@populate @source
 
-	getValue: ->
-		@cache.$widget.val()
+		populate: (data, callback) ->
+			if typeof data is 'string'
+				cb = (data) =>
+					@populate data, callback
 
-class InputText extends Base
-	DEFAULTS:
-		widget: "<input type='text' class='form-control #{pluginName}-widget' />"
+				$.getJSON data, cb
+			else if Array.isArray data
+				$widget = @cache.$widget
+				_template = @itemWidget
+				for item in data
+					do (item) ->
+						$widget.append format _template,
+							value: item.value or item
+							text: item.text or item
 
-class Select extends Base
-	DEFAULTS:
-		widget: "<select class='form-control #{pluginName}-widget'></select>"
-		widgetItem: "<option value='{value}'>{text}</option>"
+				callback() if callback?
+			else if data?
+				{data, callback} = data
+				@populate data, callback
 
-	getData: ->
-		super()
+		attachCallbacks: ->
+			super()
+			if @saveOnSelect
+				{$widget, $el} = @cache
+				$widget.on "change.#{pluginName}", ->
+					$el.trigger TRIGGER_OK
 
-		self = @
+	# ## List
+	class List extends Base
+		defaults:
+			widget: "<input type='text' class='form-control #{pluginName}-widget' list='{listId}' />
+				<datalist id='{listId}'></datalist>"
+			itemWidget: "<option label='{text}' value='{value}'>"
+			saveOnSelect: false
 
-		if 'source' not of @data
-			@data.source = @options.source
+		constructor: (el, options) ->
+			@uuid = guid()
+			@defaults.widget = format @defaults.widget, listId: "#{pluginName}-list-#{@uuid}"
+			super el, options
 
-	constructWidget: ->
-		super()
-		if Array.isArray @data.source
-			@data.items = @data.source
-			@populateSelect()
-		else
-			$.getJSON @data.source, @populateSelect.bind @
+		build: ->
+			super()
+			@cache.$list = $ "##{pluginName}-list-#{@uuid}"
+			@populate @source
 
-	populateSelect: (data) -> 
-		@data.items = if Array.isArray data then data else []
-		$widget = @cache.$widget
-		template = @options.widgetItem
-		@data.items.forEach (item) ->
-			$widget.append format template, 
-				value: item.value or item
-				text: item.text or item
+		populate: (data, callback) ->
+			if typeof data is 'string'
+				cb = (data) =>
+					@populate data, callback
 
-class InputDate extends Base
-	DEFAULTS:
-		widget: "<input type='date' class='form-control #{pluginName}-widget' />"
+				$.getJSON data, cb
 
-	getData: ->
-		super()
-		@data.viewformat ?= @data.format
-		@data.saveformat ?= @data.format
+			else if Array.isArray data
+				$list = @cache.$list
+				_template = @itemWidget
+				for item in data
+					do (item) ->
+						$list.append format _template,
+							value: item.value or item
+							text: item.text or item
 
-	getValue: ->
-		m = moment @cache.$widget.val(), DATE_FORMAT
-		.format @data.saveformat
+				callback() if callback?
 
+			else if data?
+				{data, callback} = data
+				@populate data, callback
 
-Meteor.startup ->
-	jQuery.fn[pluginName] = (options, options2 = null) ->
-		if typeof options is "string"
-			@each ->
-				if helper = @.data "#{pluginName}"
-					helper.cmd options, options2
+		attachCallbacks: ->
+			super()
+			if @saveOnSelect
+				{$widget, $el} = @cache
+				$widget.on "input.#{pluginName}", ->
+					$el.trigger TRIGGER_OK
 
-		else
-			options = $.extend {}, jQuery.fn[pluginName].DEFAULTS, options
-			@each ->
-				type = @getAttribute("data-type") or options.type
-				new options.types[type] @, options
+	# ## InputDate
+	class InputDate extends Base
+		defaults:
+			widget: "<input type='date' class='form-control #{pluginName}-widget' />"
+			widgetFormat: INPUT_DATE_FORMAT
+			format: INPUT_DATE_FORMAT
 
+		build: ->
+			super()
+			@viewformat ?= @format
+			@saveformat ?= @format
 
-	jQuery.fn[pluginName].DEFAULTS =
-		saveCallback: (event, value) ->
-			@cache.$view.text value
+		setWidgetValue: ->
+			formatted = moment @cache.$el.text(), @viewformat
+			.format @widgetFormat
+			@cache.$widget.val formatted
 
-		readyCallback: (source) -> null
-		saveOnDismiss: false
-		saveOnEnter: true
+		getWidgetValue: ->
+			moment @cache.$widget.val(), @widgetFormat
+			.format @saveformat
 
-		# Note: this setting can be problematic.
-		# If the user clicks the OK button, the dismiss event
-		# is triggered prior to the click event. If `saveOnDismiss`
-		# is `true`, the save callback will be called twice
-		dismissOnLoseFocus: false
-		dismissOnClickOutside: true
-		dismissOnEscape: true
+	class InputMonth extends InputDate
+		defaults:
+			widget: "<input type='month' class='form-control #{pluginName}-widget' />"
+			widgetFormat: INPUT_MONTH_FORMAT
+			format: INPUT_MONTH_FORMAT
 
-		saveOnSelect: false
+	# # Initialization
+	# Initialize the jQuery plugin
+	initPlugin = ->
+		$.fn[pluginName] = (options, options2 = null) ->
+			self = @
 
-		types:
-			text: InputText
-			select: Select
-			date: InputDate
+			if typeof options is 'string'
+				@each ->
+					if helper = $(self).data("#{pluginName}-data")
+						helper.method options, options2
+			else
+				options = $.extend {}, $.fn[pluginName].defaults, options
+				@each ->
+					type = @getAttribute('data-type') or options.type
+					new $.fn[pluginName].widgets[type] @, options
+
+		$.extend $.fn[pluginName],
+			widgets:
+				text: InputText
+				select: Select
+				list: List
+				date: InputDate
+				month: InputMonth
+
+			baseClass: Base
+			extendable: Extendable
+
+			registerWidget: (type, klass) ->
+				@widgets[type] = klass
+
+			defaults:
+				dismissOnClickOutside: "cancel"
+				saveOnEnter: true
+				cancelOnEscape: true
+				saveCallback: (value) ->
+					console.log "saveCallback called with value #{value}"
+
+	if Meteor?
+		Meteor.startup -> initPlugin()
+
+encapsulate jQuery, window

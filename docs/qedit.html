@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <title>qedit.coffee</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, target-densitydpi=160dpi, initial-scale=1.0; maximum-scale=1.0; user-scalable=0;">
+  <link rel="stylesheet" media="all" href="docco.css" />
+</head>
+<body>
+  <div id="container">
+    <div id="background"></div>
+    
+      <ul id="jump_to">
+        <li>
+          <a class="large" href="javascript:void(0);">Jump To &hellip;</a>
+          <a class="small" href="javascript:void(0);">+</a>
+          <div id="jump_wrapper">
+          <div id="jump_page">
+            
+              
+              <a class="source" href="qedit.html">
+                qedit.coffee
+              </a>
+            
+              
+              <a class="source" href="utils.html">
+                utils.coffee
+              </a>
+            
+          </div>
+        </li>
+      </ul>
+    
+    <ul class="sections">
+        
+          <li id="title">
+              <div class="annotation">
+                  <h1>qedit.coffee</h1>
+              </div>
+          </li>
+        
+        
+        
+        <li id="section-1">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-1">&#182;</a>
+              </div>
+              
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-title">encapsulate</span> = <span class="hljs-params">($, <span class="hljs-built_in">window</span>)</span> -&gt;</span>
+	pluginName = <span class="hljs-string">'qedit'</span>
+	$ = jQuery</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-2">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-2">&#182;</a>
+              </div>
+              <h1 id="constants">Constants</h1>
+
+            </div>
+            
+        </li>
+        
+        
+        <li id="section-3">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-3">&#182;</a>
+              </div>
+              <h3 id="bootstrap">Bootstrap</h3>
+<p>Default fade transition time for Bootstrap’s <code>.fade</code></p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>	FADE_TIME_MS = <span class="hljs-number">150</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-4">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-4">&#182;</a>
+              </div>
+              <h3 id="keycodes">KeyCodes</h3>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>	KEYCODE_ESCAPE = <span class="hljs-number">27</span>
+	KEYCODE_ENTER = <span class="hljs-number">13</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-5">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-5">&#182;</a>
+              </div>
+              <h3 id="events">Events</h3>
+<p>This plugin makes several hooks available:</p>
+<ul>
+<li><code>qedit.before.open</code> and <code>qedit.after.open</code><ul>
+<li>Triggered before and after the widget opens</li>
+<li>Callback: <code>function(event, pluginObject)</code></li>
+</ul>
+</li>
+<li><code>qedit.before.close</code> and <code>qedit.after.close</code><ul>
+<li>Triggered before and after the widget closes
+due to an <code>qedit.ok</code> or <code>qedit.cancel</code> event.</li>
+<li>Callback: <code>function(event, pluginObject, mode)</code> 
+where <code>mode</code> is either “ok” or “cancel”.</li>
+</ul>
+</li>
+</ul>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+	BEFORE_OPEN_EVENT = <span class="hljs-string">"<span class="hljs-subst">#{pluginName}</span>.before.open"</span>
+	AFTER_OPEN_EVENT = <span class="hljs-string">"<span class="hljs-subst">#{pluginName}</span>.after.open"</span>
+	BEFORE_CLOSE_EVENT = <span class="hljs-string">"<span class="hljs-subst">#{pluginName}</span>.before.close"</span>
+	AFTER_CLOSE_EVENT = <span class="hljs-string">"<span class="hljs-subst">#{pluginName}</span>.after.close"</span>
+	TRIGGER_OPEN = <span class="hljs-string">"<span class="hljs-subst">#{pluginName}</span>.open"</span>
+	TRIGGER_OK = <span class="hljs-string">"<span class="hljs-subst">#{pluginName}</span>.ok"</span>
+	TRIGGER_CANCEL = <span class="hljs-string">"<span class="hljs-subst">#{pluginName}</span>.cancel"</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-6">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-6">&#182;</a>
+              </div>
+              <h3 id="widget-specific-constants">Widget specific constants</h3>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>	DEFAULT_TEMPLATE = <span class="hljs-string">"
+	  &lt;div class='input-group input-group-sm <span class="hljs-subst">#{pluginName}</span>-edit fade'&gt;
+	  	{widget}
+	  	&lt;div class='input-group-btn'&gt;
+	  		&lt;button type='button' class='btn btn-primary <span class="hljs-subst">#{pluginName}</span>-ok'&gt;
+	  			&lt;span class='glyphicon glyphicon-ok'&gt;&lt;/span&gt;
+	  		&lt;/button&gt;
+	  		&lt;button type='button' class='btn btn-default <span class="hljs-subst">#{pluginName}</span>-cancel'&gt;
+	  			&lt;span class='glyphicon glyphicon-remove'&gt;&lt;/span&gt;
+	  		&lt;/button&gt;
+	  	&lt;/div&gt;
+	  &lt;/div&gt;
+		"</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-7">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-7">&#182;</a>
+              </div>
+              <p>The format of input date’s <code>value</code> property</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>	INPUT_DATE_FORMAT = <span class="hljs-string">"YYYY-MM-DD"</span>
+	INPUT_MONTH_FORMAT = <span class="hljs-string">"YYYY-MM"</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-8">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-8">&#182;</a>
+              </div>
+              <h1 id="helpers">Helpers</h1>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+	{format, curry, after, slice, Extendable, guid} = utils</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-9">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-9">&#182;</a>
+              </div>
+              <h1 id="classes">Classes</h1>
+
+            </div>
+            
+        </li>
+        
+        
+        <li id="section-10">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-10">&#182;</a>
+              </div>
+              <h2 id="base">Base</h2>
+<p>All widgets descend from this class</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>	<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Base</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Extendable</span></span>
+		<span class="hljs-attribute">template</span>: DEFAULT_TEMPLATE
+		<span class="hljs-attribute">defaults</span>:
+			<span class="hljs-attribute">widget</span>: <span class="hljs-literal">null</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-11">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-11">&#182;</a>
+              </div>
+              <h3 id="constructor">constructor</h3>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>		<span class="hljs-attribute">constructor</span>: <span class="hljs-function"><span class="hljs-params">(<span class="hljs-property">@el</span>, options)</span> -&gt;</span>
+			<span class="hljs-property">@cache</span> = <span class="hljs-keyword">new</span> Extendable
+			$el = <span class="hljs-property">@cache</span>.$el = $ <span class="hljs-property">@el</span>
+			<span class="hljs-property">@extend</span> <span class="hljs-property">@defaults</span>, $el.data(), options
+
+			<span class="hljs-property">@oldClasses</span> = slice <span class="hljs-property">@el</span>.classList, <span class="hljs-number">0</span>
+			<span class="hljs-property">@build</span>()
+			<span class="hljs-property">@attachCallbacks</span>()
+
+			$el.data <span class="hljs-string">"<span class="hljs-subst">#{pluginName}</span>-data"</span>, @</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-12">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-12">&#182;</a>
+              </div>
+              <h3 id="build">build</h3>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>		<span class="hljs-attribute">build</span>:<span class="hljs-function"> -&gt;</span>
+			$el = <span class="hljs-property">@cache</span>.$el
+			$edit = <span class="hljs-property">@cache</span>.$edit = $ format <span class="hljs-property">@template</span>, @
+			.insertAfter $el
+
+			<span class="hljs-property">@cache</span>.extend
+				<span class="hljs-attribute">$widget</span>: $edit.find <span class="hljs-string">".<span class="hljs-subst">#{pluginName}</span>-widget"</span>
+				<span class="hljs-attribute">$ok</span>: $edit.find <span class="hljs-string">".<span class="hljs-subst">#{pluginName}</span>-ok"</span>
+				<span class="hljs-attribute">$cancel</span>: $edit.find <span class="hljs-string">".<span class="hljs-subst">#{pluginName}</span>-cancel"</span>
+
+			$el.addClass <span class="hljs-string">"fade in"</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-13">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-13">&#182;</a>
+              </div>
+              <h3 id="destroy">destroy</h3>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>		<span class="hljs-attribute">destroy</span>:<span class="hljs-function"> -&gt;</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-14">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-14">&#182;</a>
+              </div>
+              <p>Remove any classes that were applied to <code>el</code> by
+this plugin.
+Any classes added to <code>el</code> (by this plugin, or 
+by any other code) after initializing will be
+removed. Set the <code>doNotRevert</code> option to <code>true</code>
+to avoid this behavior. </p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>			<span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> <span class="hljs-property">@doNotRevert</span>
+				<span class="hljs-property">@el</span>.className = <span class="hljs-property">@oldClasses</span>.join <span class="hljs-string">' '</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-15">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-15">&#182;</a>
+              </div>
+              <p>Remove all callbacks attached to <code>el</code> and the 
+document. We don’t have to worry about the callbacks 
+attached to any created elements as we’ll be removing
+those next…</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>			<span class="hljs-property">@detachCallbacks</span>()</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-16">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-16">&#182;</a>
+              </div>
+              <p>Remove the created element from the DOM</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>			<span class="hljs-property">@cache</span>.$edit.remove()</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-17">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-17">&#182;</a>
+              </div>
+              <p>Remove <code>this</code> from <code>el</code> data.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>			<span class="hljs-property">@cache</span>.$el.removeData <span class="hljs-string">"<span class="hljs-subst">#{pluginName}</span>-data"</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-18">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-18">&#182;</a>
+              </div>
+              <h3 id="attachcallbacks">attachCallbacks</h3>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>		<span class="hljs-attribute">attachCallbacks</span>:<span class="hljs-function"> -&gt;</span>
+			self = @
+			{$el, $edit, $widget, $ok, $cancel} = <span class="hljs-property">@cache</span>
+			fxQueue = <span class="hljs-property">@fxQueue</span>
+			$<span class="hljs-built_in">window</span> = $ <span class="hljs-built_in">window</span>
+
+			<span class="hljs-function"><span class="hljs-title">trigger</span> = <span class="hljs-params">(eventName, args...)</span> -&gt;</span>
+				$el.trigger eventName, args</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-19">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-19">&#182;</a>
+              </div>
+              <p><strong>Trigger helpers:</strong></p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>			_before_open = curry trigger, BEFORE_OPEN_EVENT
+			_after_open = curry trigger, AFTER_OPEN_EVENT
+			_before_close = curry trigger, BEFORE_CLOSE_EVENT
+			_after_close = curry trigger, AFTER_CLOSE_EVENT
+			_open = curry trigger, TRIGGER_OPEN
+			_ok = curry trigger, TRIGGER_OK
+			_cancel = curry trigger, TRIGGER_CANCEL</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-20">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-20">&#182;</a>
+              </div>
+              <p><strong>Misc:</strong></p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>			<span class="hljs-property">@detachWindowCallbacks</span> = <span class="hljs-function"><span class="hljs-title">_detach_window_callbacks</span> = -&gt;</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-21">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-21">&#182;</a>
+              </div>
+              <p>We call <code>off()</code> with functions as arguments so that
+other widgets with the same plugin can safely
+use the same namespace.            </p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>				$<span class="hljs-built_in">window</span>
+				.<span class="hljs-literal">off</span> <span class="hljs-string">"click.<span class="hljs-subst">#{pluginName}</span>"</span>, _ok
+				.<span class="hljs-literal">off</span> <span class="hljs-string">"click.<span class="hljs-subst">#{pluginName}</span>"</span>, _cancel
+
+			<span class="hljs-function"><span class="hljs-title">close</span> = <span class="hljs-params">(callback)</span> -&gt;</span>
+				$edit.removeClass <span class="hljs-string">"in"</span>
+
+				after FADE_TIME_MS,<span class="hljs-function"> -&gt;</span>
+					$edit.hide()
+					$el
+					.show()
+					.addClass <span class="hljs-string">"in"</span>
+
+					after FADE_TIME_MS,<span class="hljs-function"> -&gt;</span>
+						callback()</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-22">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-22">&#182;</a>
+              </div>
+              <p><strong>Event Handlers:</strong></p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>			<span class="hljs-function"><span class="hljs-title">onOpen</span> = -&gt;</span>
+				<span class="hljs-keyword">switch</span> self.dismissOnClickOutside
+					<span class="hljs-keyword">when</span> <span class="hljs-string">'save'</span>
+						$<span class="hljs-built_in">window</span>.<span class="hljs-literal">on</span> <span class="hljs-string">"click.<span class="hljs-subst">#{pluginName}</span>"</span>, _ok
+					<span class="hljs-keyword">when</span> <span class="hljs-string">'cancel'</span>
+						$<span class="hljs-built_in">window</span>.<span class="hljs-literal">on</span> <span class="hljs-string">"click.<span class="hljs-subst">#{pluginName}</span>"</span>, _cancel
+
+				_before_open self
+	
+				self.setWidgetValue()
+
+				$el
+				.one TRIGGER_OK, onOk
+				.one TRIGGER_CANCEL, onCancel
+
+				$el
+				.removeClass <span class="hljs-string">"in"</span>
+				
+				after FADE_TIME_MS,<span class="hljs-function"> -&gt;</span>
+					$el.hide()
+					$edit
+					.show()
+					.addClass <span class="hljs-string">"in"</span>
+
+					after FADE_TIME_MS,<span class="hljs-function"> -&gt;</span>
+						_after_open self
+
+			<span class="hljs-function"><span class="hljs-title">onOk</span> = -&gt;</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-23">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-23">&#182;</a>
+              </div>
+              <p>Stop listening for the other events</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>				_detach_window_callbacks()
+				$el.<span class="hljs-literal">off</span> TRIGGER_CANCEL
+
+				_before_close self, <span class="hljs-string">'ok'</span>
+				self.saveCallback.call self, self.getWidgetValue()
+				close<span class="hljs-function"> -&gt;</span> _after_close self, <span class="hljs-string">'ok'</span>
+
+			<span class="hljs-function"><span class="hljs-title">onCancel</span> = -&gt;</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-24">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-24">&#182;</a>
+              </div>
+              <p>Stop listening for the other events</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>				_detach_window_callbacks()	
+				$el.<span class="hljs-literal">off</span> TRIGGER_OK
+
+				_before_close self, <span class="hljs-string">'cancel'</span>
+				close<span class="hljs-function"> -&gt;</span> _after_close self, <span class="hljs-string">'cancel'</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-25">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-25">&#182;</a>
+              </div>
+              <p><strong>Attachment:</strong></p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>			$el.<span class="hljs-literal">on</span> TRIGGER_OPEN, onOpen
+
+			$edit
+			.<span class="hljs-literal">on</span> <span class="hljs-string">"click.<span class="hljs-subst">#{pluginName}</span>"</span>, <span class="hljs-function"><span class="hljs-params">(e)</span> -&gt;</span> e.stopPropagation()
+
+			$ok
+			.<span class="hljs-literal">on</span> <span class="hljs-string">"click.<span class="hljs-subst">#{pluginName}</span>"</span>, _ok
+
+			$cancel
+			.<span class="hljs-literal">on</span> <span class="hljs-string">"click.<span class="hljs-subst">#{pluginName}</span>"</span>, _cancel
+
+			$el
+			.<span class="hljs-literal">on</span> <span class="hljs-string">"click.<span class="hljs-subst">#{pluginName}</span>"</span>, <span class="hljs-function"><span class="hljs-params">(e)</span> -&gt;</span> e.stopPropagation()
+			.<span class="hljs-literal">on</span> <span class="hljs-string">"click.<span class="hljs-subst">#{pluginName}</span>"</span>, _open
+
+			<span class="hljs-keyword">if</span> self.cancelOnEscape
+				$edit
+				.<span class="hljs-literal">on</span> <span class="hljs-string">"keydown.<span class="hljs-subst">#{pluginName}</span>"</span>, <span class="hljs-function"><span class="hljs-params">(e)</span> -&gt;</span>
+					_cancel() <span class="hljs-keyword">if</span> e.which <span class="hljs-keyword">is</span> KEYCODE_ESCAPE
+
+			<span class="hljs-keyword">if</span> self.saveOnEnter
+				$edit
+				.<span class="hljs-literal">on</span> <span class="hljs-string">"keydown.<span class="hljs-subst">#{pluginName}</span>"</span>, <span class="hljs-function"><span class="hljs-params">(e)</span> -&gt;</span>
+					_ok() <span class="hljs-keyword">if</span> e.which <span class="hljs-keyword">is</span> KEYCODE_ENTER</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-26">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-26">&#182;</a>
+              </div>
+              <h3 id="detachcallbacks">detachCallbacks</h3>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>		<span class="hljs-attribute">detachCallbacks</span>:<span class="hljs-function"> -&gt;</span>
+			$el
+			.<span class="hljs-literal">off</span> <span class="hljs-string">"click.<span class="hljs-subst">#{pluginName}</span>"</span>
+			.<span class="hljs-literal">off</span> [TRIGGER_OPEN, TRIGGER_OK, TRIGGER_CANCEL].join <span class="hljs-string">' '</span>
+			.<span class="hljs-literal">off</span> [BEFORE_OPEN_EVENT, AFTER_OPEN_EVENT, BEFORE_CLOSE_EVENT, AFTER_CLOSE_EVENT].join <span class="hljs-string">' '</span>
+			<span class="hljs-property">@detachWindowCallbacks</span>()</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-27">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-27">&#182;</a>
+              </div>
+              <h3 id="getwidgetvalue">getWidgetValue</h3>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>		<span class="hljs-attribute">getWidgetValue</span>:<span class="hljs-function"> -&gt;</span> 
+			<span class="hljs-property">@cache</span>.$widget.val()</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-28">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-28">&#182;</a>
+              </div>
+              <h3 id="setwidgetvalue">setWidgetValue</h3>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>		<span class="hljs-attribute">setWidgetValue</span>:<span class="hljs-function"> -&gt;</span>
+			<span class="hljs-property">@cache</span>.$widget.val <span class="hljs-property">@cache</span>.$el.text()</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-29">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-29">&#182;</a>
+              </div>
+              <h3 id="method">method</h3>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>		<span class="hljs-attribute">method</span>: <span class="hljs-function"><span class="hljs-params">(name, options)</span> -&gt;</span>
+			@[name] options
+
+		<span class="hljs-attribute">open</span>:<span class="hljs-function"> -&gt;</span>
+			<span class="hljs-property">@cache</span>.$el.trigger TRIGGER_OPEN
+
+		<span class="hljs-attribute">save</span>:<span class="hljs-function"> -&gt;</span>
+			<span class="hljs-property">@cache</span>.$el.trigger TRIGGER_OK
+
+		<span class="hljs-attribute">close</span>:<span class="hljs-function"> -&gt;</span>
+			<span class="hljs-property">@cache</span>.$el.trigger TRIGGER_CANCEL</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-30">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-30">&#182;</a>
+              </div>
+              <h2 id="inputtext">InputText</h2>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>	<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">InputText</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Base</span></span>
+		<span class="hljs-attribute">defaults</span>:
+			<span class="hljs-attribute">widget</span>: <span class="hljs-string">"&lt;input type='text' class='form-control <span class="hljs-subst">#{pluginName}</span>-widget' /&gt;"</span>
+
+		<span class="hljs-attribute">attachCallbacks</span>:<span class="hljs-function"> -&gt;</span>
+			<span class="hljs-keyword">super</span>()
+			$widget = <span class="hljs-property">@cache</span>.$widget
+			<span class="hljs-property">@cache</span>.$el
+			.<span class="hljs-literal">on</span> AFTER_OPEN_EVENT,<span class="hljs-function"> -&gt;</span>
+				$widget.focus().select()</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-31">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-31">&#182;</a>
+              </div>
+              <h2 id="select">Select</h2>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>	<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Select</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Base</span></span>
+		<span class="hljs-attribute">defaults</span>:
+			<span class="hljs-attribute">widget</span>: <span class="hljs-string">"&lt;select class='form-control <span class="hljs-subst">#{pluginName}</span>-widget'&gt;&lt;/select&gt;"</span>
+			<span class="hljs-attribute">itemWidget</span>: <span class="hljs-string">"&lt;option value='{value}'&gt;{text}&lt;/text&gt;"</span>
+			<span class="hljs-attribute">saveOnSelect</span>: <span class="hljs-literal">false</span>
+
+		<span class="hljs-attribute">build</span>:<span class="hljs-function"> -&gt;</span>
+			<span class="hljs-keyword">super</span>()
+			<span class="hljs-property">@populate</span> <span class="hljs-property">@source</span>
+
+		<span class="hljs-attribute">populate</span>: <span class="hljs-function"><span class="hljs-params">(data, callback)</span> -&gt;</span>
+			<span class="hljs-keyword">if</span> <span class="hljs-keyword">typeof</span> data <span class="hljs-keyword">is</span> <span class="hljs-string">'string'</span>
+				<span class="hljs-function"><span class="hljs-title">cb</span> = <span class="hljs-params">(data)</span> =&gt;</span>
+					<span class="hljs-property">@populate</span> data, callback
+
+				$.getJSON data, cb
+			<span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> Array.isArray data
+				$widget = <span class="hljs-property">@cache</span>.$widget
+				_template = <span class="hljs-property">@itemWidget</span>
+				<span class="hljs-keyword">for</span> item <span class="hljs-keyword">in</span> data
+					<span class="hljs-keyword">do</span> <span class="hljs-function"><span class="hljs-params">(item)</span> -&gt;</span>
+						$widget.append format _template,
+							<span class="hljs-attribute">value</span>: item.value <span class="hljs-keyword">or</span> item
+							<span class="hljs-attribute">text</span>: item.text <span class="hljs-keyword">or</span> item
+
+				callback() <span class="hljs-keyword">if</span> callback?
+			<span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> data?
+				{data, callback} = data
+				<span class="hljs-property">@populate</span> data, callback
+
+		<span class="hljs-attribute">attachCallbacks</span>:<span class="hljs-function"> -&gt;</span>
+			<span class="hljs-keyword">super</span>()
+			<span class="hljs-keyword">if</span> <span class="hljs-property">@saveOnSelect</span>
+				{$widget, $el} = <span class="hljs-property">@cache</span>
+				$widget.<span class="hljs-literal">on</span> <span class="hljs-string">"change.<span class="hljs-subst">#{pluginName}</span>"</span>,<span class="hljs-function"> -&gt;</span>
+					$el.trigger TRIGGER_OK</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-32">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-32">&#182;</a>
+              </div>
+              <h2 id="list">List</h2>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>	<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">List</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Base</span></span>
+		<span class="hljs-attribute">defaults</span>:
+			<span class="hljs-attribute">widget</span>: <span class="hljs-string">"&lt;input type='text' class='form-control <span class="hljs-subst">#{pluginName}</span>-widget' list='{listId}' /&gt;
+				&lt;datalist id='{listId}'&gt;&lt;/datalist&gt;"</span>
+			<span class="hljs-attribute">itemWidget</span>: <span class="hljs-string">"&lt;option label='{text}' value='{value}'&gt;"</span>
+			<span class="hljs-attribute">saveOnSelect</span>: <span class="hljs-literal">false</span>
+
+		<span class="hljs-attribute">constructor</span>: <span class="hljs-function"><span class="hljs-params">(el, options)</span> -&gt;</span>
+			<span class="hljs-property">@uuid</span> = guid()
+			<span class="hljs-property">@defaults</span>.widget = format <span class="hljs-property">@defaults</span>.widget, <span class="hljs-attribute">listId</span>: <span class="hljs-string">"<span class="hljs-subst">#{pluginName}</span>-list-<span class="hljs-subst">#{<span class="hljs-property">@uuid</span>}</span>"</span>
+			<span class="hljs-keyword">super</span> el, options
+
+		<span class="hljs-attribute">build</span>:<span class="hljs-function"> -&gt;</span>
+			<span class="hljs-keyword">super</span>()
+			<span class="hljs-property">@cache</span>.$list = $ <span class="hljs-string">"#<span class="hljs-subst">#{pluginName}</span>-list-<span class="hljs-subst">#{<span class="hljs-property">@uuid</span>}</span>"</span>
+			<span class="hljs-property">@populate</span> <span class="hljs-property">@source</span>
+
+		<span class="hljs-attribute">populate</span>: <span class="hljs-function"><span class="hljs-params">(data, callback)</span> -&gt;</span>
+			<span class="hljs-keyword">if</span> <span class="hljs-keyword">typeof</span> data <span class="hljs-keyword">is</span> <span class="hljs-string">'string'</span>
+				<span class="hljs-function"><span class="hljs-title">cb</span> = <span class="hljs-params">(data)</span> =&gt;</span>
+					<span class="hljs-property">@populate</span> data, callback
+
+				$.getJSON data, cb
+
+			<span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> Array.isArray data
+				$list = <span class="hljs-property">@cache</span>.$list
+				_template = <span class="hljs-property">@itemWidget</span>
+				<span class="hljs-keyword">for</span> item <span class="hljs-keyword">in</span> data
+					<span class="hljs-keyword">do</span> <span class="hljs-function"><span class="hljs-params">(item)</span> -&gt;</span>
+						$list.append format _template,
+							<span class="hljs-attribute">value</span>: item.value <span class="hljs-keyword">or</span> item
+							<span class="hljs-attribute">text</span>: item.text <span class="hljs-keyword">or</span> item
+
+				callback() <span class="hljs-keyword">if</span> callback?
+
+			<span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> data?
+				{data, callback} = data
+				<span class="hljs-property">@populate</span> data, callback
+
+		<span class="hljs-attribute">attachCallbacks</span>:<span class="hljs-function"> -&gt;</span>
+			<span class="hljs-keyword">super</span>()
+			<span class="hljs-keyword">if</span> <span class="hljs-property">@saveOnSelect</span>
+				{$widget, $el} = <span class="hljs-property">@cache</span>
+				$widget.<span class="hljs-literal">on</span> <span class="hljs-string">"input.<span class="hljs-subst">#{pluginName}</span>"</span>,<span class="hljs-function"> -&gt;</span>
+					$el.trigger TRIGGER_OK</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-33">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-33">&#182;</a>
+              </div>
+              <h2 id="inputdate">InputDate</h2>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>	<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">InputDate</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Base</span></span>
+		<span class="hljs-attribute">defaults</span>:
+			<span class="hljs-attribute">widget</span>: <span class="hljs-string">"&lt;input type='date' class='form-control <span class="hljs-subst">#{pluginName}</span>-widget' /&gt;"</span>
+			<span class="hljs-attribute">widgetFormat</span>: INPUT_DATE_FORMAT
+			<span class="hljs-attribute">format</span>: INPUT_DATE_FORMAT
+
+		<span class="hljs-attribute">build</span>:<span class="hljs-function"> -&gt;</span>
+			<span class="hljs-keyword">super</span>()
+			<span class="hljs-property">@viewformat</span> ?= <span class="hljs-property">@format</span>
+			<span class="hljs-property">@saveformat</span> ?= <span class="hljs-property">@format</span>
+
+		<span class="hljs-attribute">setWidgetValue</span>:<span class="hljs-function"> -&gt;</span>
+			formatted = moment <span class="hljs-property">@cache</span>.$el.text(), <span class="hljs-property">@viewformat</span>
+			.format <span class="hljs-property">@widgetFormat</span>
+			<span class="hljs-property">@cache</span>.$widget.val formatted
+
+		<span class="hljs-attribute">getWidgetValue</span>:<span class="hljs-function"> -&gt;</span>
+			moment <span class="hljs-property">@cache</span>.$widget.val(), <span class="hljs-property">@widgetFormat</span>
+			.format <span class="hljs-property">@saveformat</span>
+
+	<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">InputMonth</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">InputDate</span></span>
+		<span class="hljs-attribute">defaults</span>:
+			<span class="hljs-attribute">widget</span>: <span class="hljs-string">"&lt;input type='month' class='form-control <span class="hljs-subst">#{pluginName}</span>-widget' /&gt;"</span>
+			<span class="hljs-attribute">widgetFormat</span>: INPUT_MONTH_FORMAT
+			<span class="hljs-attribute">format</span>: INPUT_MONTH_FORMAT</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-34">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-34">&#182;</a>
+              </div>
+              <h1 id="initialization">Initialization</h1>
+<p>Initialize the jQuery plugin</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>	<span class="hljs-function"><span class="hljs-title">initPlugin</span> = -&gt;</span>
+		$.fn[pluginName] = <span class="hljs-function"><span class="hljs-params">(options, options2 = <span class="hljs-literal">null</span>)</span> -&gt;</span>
+			self = @
+
+			<span class="hljs-keyword">if</span> <span class="hljs-keyword">typeof</span> options <span class="hljs-keyword">is</span> <span class="hljs-string">'string'</span>
+				<span class="hljs-property">@each</span><span class="hljs-function"> -&gt;</span>
+					<span class="hljs-keyword">if</span> helper = $(self).data(<span class="hljs-string">"<span class="hljs-subst">#{pluginName}</span>-data"</span>)
+						helper.method options, options2
+			<span class="hljs-keyword">else</span>
+				options = $.extend {}, $.fn[pluginName].defaults, options
+				<span class="hljs-property">@each</span><span class="hljs-function"> -&gt;</span>
+					type = <span class="hljs-property">@getAttribute</span>(<span class="hljs-string">'data-type'</span>) <span class="hljs-keyword">or</span> options.type
+					<span class="hljs-keyword">new</span> $.fn[pluginName].widgets[type] @, options
+
+		$.extend $.fn[pluginName],
+			<span class="hljs-attribute">widgets</span>:
+				<span class="hljs-attribute">text</span>: InputText
+				<span class="hljs-attribute">select</span>: Select
+				<span class="hljs-attribute">list</span>: List
+				<span class="hljs-attribute">date</span>: InputDate
+				<span class="hljs-attribute">month</span>: InputMonth
+
+			<span class="hljs-attribute">baseClass</span>: Base
+			<span class="hljs-attribute">extendable</span>: Extendable
+
+			<span class="hljs-attribute">registerWidget</span>: <span class="hljs-function"><span class="hljs-params">(type, klass)</span> -&gt;</span>
+				<span class="hljs-property">@widgets</span>[type] = klass
+
+			<span class="hljs-attribute">defaults</span>:
+				<span class="hljs-attribute">dismissOnClickOutside</span>: <span class="hljs-string">"cancel"</span>
+				<span class="hljs-attribute">saveOnEnter</span>: <span class="hljs-literal">true</span>
+				<span class="hljs-attribute">cancelOnEscape</span>: <span class="hljs-literal">true</span>
+				<span class="hljs-attribute">saveCallback</span>: <span class="hljs-function"><span class="hljs-params">(value)</span> -&gt;</span>
+					<span class="hljs-built_in">console</span>.log <span class="hljs-string">"saveCallback called with value <span class="hljs-subst">#{value}</span>"</span>
+
+	<span class="hljs-keyword">if</span> Meteor?
+		Meteor.startup<span class="hljs-function"> -&gt;</span> initPlugin()
+
+encapsulate jQuery, <span class="hljs-built_in">window</span></pre></div></div>
+            
+        </li>
+        
+    </ul>
+  </div>
+</body>
+</html>
